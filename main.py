@@ -1,13 +1,14 @@
 import csv
 import psycopg2
 import os
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 
 app = Flask(__name__)
 
 
 def get_connection():
     if os.environ.get('DATABASE_URL') is None:
+        # Creds on local machine
         cred = {
             "dbname": "scopus_test",
             "user": "postgres",
@@ -102,20 +103,29 @@ def add_csv_to_html(cur, conn):
                where is_innopolis = true
                order by name;"""
     cur.execute(sql)
-    res = '''<p><p> Table of all Innopolis authors
+    res = '''<p><p><form action = download method = "POST">
+         <input type = "submit" value = "Download csv - Innopolis authors">
+      </form>
+      <p><p> Table of all Innopolis authors
         <table>
       <tr>
         <th>Author</th>
         <th>Affiliation</th>
       </tr>'''
-    for author in cur.fetchall():
-        res += f"""
-      <tr>
-        <td>{author[0]}</td>
-        <td>{author[1]}</td>
-      </tr> """
-    res += """</table>"""
-    return res
+    with open('innopolis_authors.csv', mode='w', encoding='utf-8-sig', newline='') as csv_file:
+        fieldnames = ['Author name', 'Affiliation']
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        for author in cur.fetchall():
+            writer.writerow({'Author name': author[0], 'Affiliation': author[1]})
+            print({'Author name': author[0], 'Affiliation': author[1]})
+            res += f"""
+          <tr>
+            <td>{author[0]}</td>
+            <td>{author[1]}</td>
+          </tr> """
+        res += """</table>"""
+        return res
 
 
 def analyze(cur, conn):
@@ -159,26 +169,6 @@ def analyze(cur, conn):
                from author_paper
                join authors a on a.id = author_paper.author_id
                where is_primary = true and a.is_innopolis = true;''',
-
-        # 'How many authors were published with other co-authors':
-        #    '''SELECT count(DISTINCT author_id)
-        #       FROM author_paper
-        #       WHERE is_primary = true AND
-        #       paper_eid IN (
-        #         SELECT paper_eid
-        #         FROM author_paper
-        #         WHERE is_primary = false
-        #       )''',
-        # 'How many authors were published with other co-authors from Innopolis':
-        #    '''SELECT count(DISTINCT author_id)
-        #       FROM author_paper
-        #       WHERE is_primary = true AND
-        #       paper_eid IN (
-        #         SELECT paper_eid
-        #         FROM author_paper
-        #         join authors a on a.id = author_paper.author_id
-        #         WHERE is_primary = false and a.is_innopolis = true
-        #       )'''
     }
     res = ''
     for query_name, query in sql_dict.items():
@@ -190,9 +180,35 @@ def analyze(cur, conn):
     return res
 
 
-# List of authors in Innopolis (author ID, author name, author affiliation)
-# List of papers of each author (author ID, author name, list of DOI of papers)
-# List of unknown authors, with no affiliation field (author ID, author name)
+def analyze_csv(filename):
+    conn = get_connection()
+    cur = conn.cursor()
+    drop_tables(cur, conn)
+    create_db(cur, conn)
+    fill_db(filename, cur, conn)
+    results = analyze(cur, conn)
+    cur.close()
+    conn.close()
+    return results
+
+
+@app.route('/upload', methods=['POST'])
+def upload():
+    if request.method == 'POST':
+        f = request.files['file']
+        filename = './file.csv'
+        f.save(filename)
+        result = analyze_csv(filename)
+        return result
+
+
+@app.route('/download', methods=['POST'])
+def download():
+    filename = "test.txt"
+    path = os.path.join(app.root_path, filename)
+
+    return send_from_directory(directory=app.root_path, path='innopolis_authors.csv', as_attachment=True)
+
 
 @app.route('/')
 def index():
@@ -201,34 +217,6 @@ def index():
                 <input type="file" name="file">
                 <input type="submit" value="Submit">
               </form>'''
-
-
-@app.route('/upload', methods=['POST'])
-def upload():
-    if request.method == 'POST':
-        f = request.files['file']
-        filename = csv_download(f)
-        result = analyze_csv(filename)
-        return result
-
-
-def csv_download(f):
-    filename = './file.csv'
-    f.save(filename)
-    return filename
-
-
-def analyze_csv(filename):
-    conn = get_connection()
-    cur = conn.cursor()
-    drop_tables(cur, conn)
-    create_db(cur, conn)
-    file = 'csv_files/scopus.csv' if filename is None else filename
-    fill_db(file, cur, conn)
-    results = analyze(cur, conn)
-    cur.close()
-    conn.close()
-    return results
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 import csv
 import psycopg2
 import os
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, abort
 
 app = Flask(__name__)
 
@@ -103,7 +103,7 @@ def add_csv_to_html(cur, conn):
                where is_innopolis = true
                order by name;"""
     cur.execute(sql)
-    res = '''<p><p><form action = download method = "POST">
+    res = '''<p><p><form action = download/innopolis_authors.csv method = "POST">
          <input type = "submit" value = "Download csv - Innopolis authors">
       </form>
       <p><p> Table of all Innopolis authors
@@ -118,7 +118,7 @@ def add_csv_to_html(cur, conn):
         writer.writeheader()
         for author in cur.fetchall():
             writer.writerow({'Author name': author[0], 'Affiliation': author[1]})
-            print({'Author name': author[0], 'Affiliation': author[1]})
+            #print({'Author name': author[0], 'Affiliation': author[1]})
             res += f"""
           <tr>
             <td>{author[0]}</td>
@@ -202,12 +202,11 @@ def upload():
         return result
 
 
-@app.route('/download', methods=['POST'])
-def download():
-    filename = "test.txt"
-    path = os.path.join(app.root_path, filename)
-
-    return send_from_directory(directory=app.root_path, path='innopolis_authors.csv', as_attachment=True)
+@app.route('/download/<file>', methods=['POST'])
+def download(file: str):
+    if not file.endswith('.csv'):
+        abort(405)
+    return send_from_directory(directory=app.root_path, path=file, as_attachment=True)
 
 
 @app.route('/')

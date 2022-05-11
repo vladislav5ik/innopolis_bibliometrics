@@ -196,7 +196,8 @@ def analyze(cur, conn):
 
 @app.route('/')
 def index():
-    return '''<form action="/upload" method="POST" enctype="multipart/form-data">
+    return '''<p>Please upload your csv file from scopus and click 'submit'<p>
+    <form action="/upload" method="POST" enctype="multipart/form-data">
                 <input type="file" name="file">
                 <input type="submit" value="Submit">
               </form>'''

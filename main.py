@@ -2,7 +2,9 @@ import csv
 import psycopg2
 import os
 from flask import Flask, request
+
 app = Flask(__name__)
+
 
 def get_connection():
     if os.environ.get('DATABASE_URL') is None:
@@ -20,6 +22,7 @@ def get_connection():
         connection = psycopg2.connect(DATABASE_URL, sslmode='require')
     return connection
 
+
 def drop_tables(cur, conn):
     sql = '''
             DROP TABLE IF EXISTS papers CASCADE;
@@ -28,6 +31,7 @@ def drop_tables(cur, conn):
             '''
     cur.execute(sql)
     conn.commit()
+
 
 def create_db(cur, conn):
     sql = '''
@@ -91,6 +95,7 @@ def fill_db(file, cur, conn):
 
                 conn.commit()
 
+
 def add_csv_to_html(cur, conn):
     sql = """Select name, affiliation
                from authors
@@ -111,6 +116,8 @@ def add_csv_to_html(cur, conn):
       </tr> """
     res += """</table>"""
     return res
+
+
 def analyze(cur, conn):
     sql_dict = {
         'Total papers':
@@ -131,29 +138,29 @@ def analyze(cur, conn):
                from authors
                where is_innopolis = false;''',
 
-        'Total authors who co-authored':
+        'Total authors who have ever co-authored':
             '''select count(distinct author_id)
                from author_paper
                where is_primary = false;''',
 
-        'Authors <b>from Innopolis</b> who co-authored':
+        'Authors <b>from Innopolis</b> who have ever co-authored':
             '''select count(distinct author_id)
                from author_paper
                join authors a on a.id = author_paper.author_id
                where is_primary = false and a.is_innopolis = true;''',
 
-        'Total authors who were the primary':
+        'Total authors who have ever been the primary':
             '''select count(distinct author_id)
                from author_paper
                where is_primary = true;''',
 
-        'Authors <b>from Innopolis</b> who were the primary':
+        'Authors <b>from Innopolis</b> who have ever been the primary':
             '''select count(distinct author_id)
                from author_paper
                join authors a on a.id = author_paper.author_id
                where is_primary = true and a.is_innopolis = true;''',
 
-        #'How many authors were published with other co-authors':
+        # 'How many authors were published with other co-authors':
         #    '''SELECT count(DISTINCT author_id)
         #       FROM author_paper
         #       WHERE is_primary = true AND
@@ -162,7 +169,7 @@ def analyze(cur, conn):
         #         FROM author_paper
         #         WHERE is_primary = false
         #       )''',
-        #'How many authors were published with other co-authors from Innopolis':
+        # 'How many authors were published with other co-authors from Innopolis':
         #    '''SELECT count(DISTINCT author_id)
         #       FROM author_paper
         #       WHERE is_primary = true AND
@@ -182,6 +189,7 @@ def analyze(cur, conn):
     res += add_csv_to_html(cur, conn)
     return res
 
+
 # List of authors in Innopolis (author ID, author name, author affiliation)
 # List of papers of each author (author ID, author name, list of DOI of papers)
 # List of unknown authors, with no affiliation field (author ID, author name)
@@ -193,12 +201,14 @@ def index():
                 <input type="submit" value="Submit">
               </form>'''
 
+
 @app.route('/upload', methods=['POST'])
 def upload():
     if request.method == 'POST':
         f = request.files['file']
         filename = csv_download(f)
-        return analyze_csv(filename)
+        result = analyze_csv(filename)
+        return result
 
 
 def csv_download(f):
@@ -218,6 +228,7 @@ def analyze_csv(filename):
     cur.close()
     conn.close()
     return results
+
 
 if __name__ == '__main__':
     app.run(debug=True)

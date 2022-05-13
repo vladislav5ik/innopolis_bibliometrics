@@ -2,8 +2,13 @@ import csv
 import psycopg2
 import os
 from flask import Flask, request, send_from_directory, abort
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
+config = {
+    "UPLOAD_PATH": os.path.join(app.root_path, 'uploads'),
+    "UPLOAD_EXTENSIONS": ['csv']
+}
 
 
 def get_connection():
@@ -77,8 +82,8 @@ def fill_db(file, cur, conn):
                          row['Link'], row['Source']))
 
             authors = zip(row["Author(s) ID"].split(";"),
-                          row["Authors"].split(", "),
-                          row["Affiliations"].split("; ")
+                          row["Authors"].split(","),
+                          row["Authors with affiliations"].split(";")
                           )
             conn.commit()
 
@@ -86,24 +91,24 @@ def fill_db(file, cur, conn):
                 sql_author = '''INSERT INTO authors (id, name, affiliation, is_innopolis) 
                                     VALUES (%s, %s, %s, %s) on conflict do nothing '''
                 cur.execute(sql_author,
-                            (author[0], author[1], author[2], 'Innopolis' in author[2]))
+                            (author[0].strip(), author[1].strip(), author[2].strip(), 'innopolis' in author[2].lower()))
                 conn.commit()
 
                 sql_author_paper = '''INSERT INTO author_paper (paper_eid, author_id, is_primary) 
                                         VALUES (%s, %s, %s)'''
                 cur.execute(sql_author_paper,
-                            (row['EID'], author[0], author_i == 0))
+                            (row['EID'].strip(), author[0].strip(), author_i == 0))
 
                 conn.commit()
 
 
-def add_csv_to_html(cur, conn):
+def add_csv_to_html(cur, conn, output_file_path):
     sql = """Select name, affiliation
                from authors
                where is_innopolis = true
                order by name;"""
     cur.execute(sql)
-    res = '''<p><p><form action = download/innopolis_authors.csv method = "POST">
+    res = f'''<p><p><form action = download/{os.path.relpath(output_file_path, config['UPLOAD_PATH'])} method = "POST">
          <input type = "submit" value = "Download csv - Innopolis authors">
       </form>
       <p><p> Table of all Innopolis authors
@@ -112,7 +117,7 @@ def add_csv_to_html(cur, conn):
         <th>Author</th>
         <th>Affiliation</th>
       </tr>'''
-    with open('innopolis_authors.csv', mode='w', encoding='utf-8-sig', newline='') as csv_file:
+    with open(output_file_path, mode='w', encoding='utf-8-sig', newline='') as csv_file:
         fieldnames = ['Author name', 'Affiliation']
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
@@ -176,17 +181,17 @@ def analyze(cur, conn):
         for item in cur.fetchall():
             res += f'<p> {query_name} = {item[0]}'
 
-    res += add_csv_to_html(cur, conn)
     return res
 
 
-def analyze_csv(filename):
+def analyze_csv(input_file_path, output_file_path):
     conn = get_connection()
     cur = conn.cursor()
     drop_tables(cur, conn)
     create_db(cur, conn)
-    fill_db(filename, cur, conn)
+    fill_db(input_file_path, cur, conn)
     results = analyze(cur, conn)
+    results += add_csv_to_html(cur, conn, output_file_path)
     cur.close()
     conn.close()
     return results
@@ -195,18 +200,27 @@ def analyze_csv(filename):
 @app.route('/upload', methods=['POST'])
 def upload():
     if request.method == 'POST':
+
+        input_file_path = os.path.join(config["UPLOAD_PATH"], 'file.csv')
+        if os.path.exists(input_file_path):
+            os.remove(input_file_path)
+        output_file_path = os.path.join(config["UPLOAD_PATH"], 'innopolis_authors.csv')
+        if os.path.exists(output_file_path):
+            os.remove(output_file_path)
+
         f = request.files['file']
-        filename = './file.csv'
-        f.save(filename)
-        result = analyze_csv(filename)
+        f.save(input_file_path)
+        result = analyze_csv(input_file_path, output_file_path)
         return result
 
 
-@app.route('/download/<file>', methods=['POST'])
-def download(file: str):
-    if not file.endswith('.csv'):
+@app.route('/download/<path:path>', methods=['POST'])
+def download_file(path):
+    if not path.endswith('.csv'):
         abort(405)
-    return send_from_directory(directory=app.root_path, path=file, as_attachment=True)
+    return send_from_directory(directory=config['UPLOAD_PATH'],
+                               path=path,
+                               as_attachment=True)
 
 
 @app.route('/')
@@ -219,4 +233,6 @@ def index():
 
 
 if __name__ == '__main__':
+    if not os.path.exists(config["UPLOAD_PATH"]):
+        os.makedirs(config["UPLOAD_PATH"])
     app.run(debug=True)

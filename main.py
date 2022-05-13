@@ -2,7 +2,6 @@ import csv
 import psycopg2
 import os
 from flask import Flask, request, send_from_directory, abort
-from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 config = {
@@ -200,11 +199,11 @@ def analyze_csv(input_file_path, output_file_path):
 @app.route('/upload', methods=['POST'])
 def upload():
     if request.method == 'POST':
-
+        os.makedirs(config["UPLOAD_PATH"], exist_ok=True)
         input_file_path = os.path.join(config["UPLOAD_PATH"], 'file.csv')
+        output_file_path = os.path.join(config["UPLOAD_PATH"], 'innopolis_authors.csv')
         if os.path.exists(input_file_path):
             os.remove(input_file_path)
-        output_file_path = os.path.join(config["UPLOAD_PATH"], 'innopolis_authors.csv')
         if os.path.exists(output_file_path):
             os.remove(output_file_path)
 
@@ -233,6 +232,4 @@ def index():
 
 
 if __name__ == '__main__':
-    if not os.path.exists(config["UPLOAD_PATH"]):
-        os.makedirs(config["UPLOAD_PATH"])
     app.run(debug=True)

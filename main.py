@@ -1,3 +1,5 @@
+import datetime
+
 from flask import Flask, request, send_from_directory, abort, render_template
 import psycopg2
 from psycopg2.extras import execute_values
@@ -12,8 +14,6 @@ config = {
 }
 
 CONN = None
-glob_test: list[list] = []
-
 
 def get_or_create_connection():
     global CONN
@@ -138,9 +138,6 @@ def fill_db(file):
     execute_values(cur, sql_author, list_authors)
     execute_values(cur, sql_author_paper, list_author_papers)
     conn.commit()
-    global glob_test
-    glob_test = sorted(list_points.items(), key=lambda x: x[0])
-    print(sum(list_points.values()))
 
 
 def is_innopolis_affiliation(affiliation: str):
@@ -160,27 +157,34 @@ def create_csv_output(output_file_path):
         join authors on author_paper.author_id = authors.id
         where author_paper.is_innopolis
         group by author_paper.author_id
-        order by author_paper.author_id;"""
+        --order by author_paper.author_id;
+        order by points DESC"""
 
     preview_list = []
+    preview_limit = 15
+    symbols_preview_limit = 200
     cur.execute(sql_innopolis_affiliations)
     with open(output_file_path, mode='w', encoding='utf-8-sig', newline='') as csv_file:
-        fieldnames = ['Author ID', 'Author name', 'Affiliation', 'Number of publications', 'Points', 'test']
+        fieldnames = ['Author ID', 'Author name', 'Affiliation', 'Number of publications', 'Points']
         preview_list.append(fieldnames)
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         for row_number, author in enumerate(cur.fetchall()):
             row = dict()
             for field_number, fieldname in enumerate(fieldnames):
-                if fieldname == 'test':
-                    row[fieldname] = glob_test[row_number]
-                    continue
                 row[fieldname] = author[field_number]
             writer.writerow(row)
 
             # preview limit
-            # if row_number < 10:
-            preview_list.append(list(row.values()))
+            if row_number < preview_limit:
+                preview_list.append([
+                    str(val)[:symbols_preview_limit]
+                    + ('...' if len(str(val)) > symbols_preview_limit else '')
+                    for val in list(row.values())
+                ])
+
+    if row_number + 1 - preview_limit > 0:
+        preview_list.append([f'{row_number + 1 - preview_limit} more lines ...'])
     return preview_list
 
 
@@ -230,8 +234,20 @@ def analyze():
         cur.execute(query)
         for item in cur.fetchall():
             res[query_name] = item[0]
+    return ('Query', 'Value'), res
 
-    return res
+
+def analyze_years():
+    conn, cur = get_or_create_connection()
+    sql_years = '''select year, count(*)
+                   from papers
+                   group by year
+                   order by year DESC'''
+    res = {}
+    cur.execute(sql_years)
+    for year, papers_count in cur.fetchall():
+        res[year] = papers_count
+    return ('Year', 'Number of papers'), res
 
 
 @app.route('/upload', methods=['POST'])
@@ -245,16 +261,18 @@ def upload():
         input_file_path = os.path.join(config["UPLOAD_PATH"], f'upload-{timestamp}.csv')
         output_file_path = os.path.join(config["UPLOAD_PATH"], f'result-{timestamp}.csv')
         f = request.files['file']
+        description = f'{f.filename} at {datetime.datetime.now().strftime("%H:%M:%S")}'
         f.save(input_file_path)
 
         drop_tables()
         create_schema()
         fill_db(input_file_path)
         preview_list = create_csv_output(output_file_path)
-        analytics_dict = analyze()
-
+        analytics_table = analyze()
+        years_table = analyze_years()
         return render_template('upload.html',
-                               analytics_dict=analytics_dict,
+                               description=description,
+                               tables=[analytics_table, years_table],
                                preview_list=preview_list,
                                output_file_name=os.path.relpath(output_file_path, config['UPLOAD_PATH']))
 

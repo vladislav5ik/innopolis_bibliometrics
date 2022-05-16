@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+   <head>
+      <meta charset="UTF-8">
+            {% if title %}
+                <title>Results - {{title}}</title>
+            {% else %}
+                <title>Results</title>
+            {% endif %}
+   </head>
+   <body>
+      <link type="text/css" href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet"/>
+      {% if analytics_dict %}
+      <h1>Results</h1>
+      <table class="table-analytic">
+           <tbody>
+              <tr>
+                 <th>Field</th>
+                 <th>Value</th>
+              </tr>
+              {% for key, value in analytics_dict.items() %}
+              <tr>
+                 <td><span>{{key}}</span></td>
+                 <td><span>{{value}}</span></td>
+              </tr>
+              {% endfor %}
+           </tbody>
+        </table>
+      {% endif %}
+
+      {% if output_file_name %}
+      <p>
+      <form action="/download/{{output_file_name}}" method="post">
+         <button class="btn_download" type="submit">Download results</button>
+         <button class="btn_upload" type="submit" formaction="/" formmethod="GET">Upload new</button>
+      </form>
+      {% else %}
+        Sorry, there was an error...
+      {% endif %}
+
+
+      {% if preview_list and preview_list|length > 1 %}
+      <h1>Table preview</h1>
+      <table class="table-analytic">
+          <tbody>
+          <tr>
+              {% for col_name in preview_list[0] %}
+              <th>{{col_name}}</th>
+              {% endfor %}
+          </tr>
+          {% for row in preview_list[1:] %}
+          <tr>
+              {% for value in row %}
+                <td><span>{{value}}</span></td>
+              {% endfor %}
+          </tr>
+          {% endfor %}
+          </tbody>
+      </table>
+      {% endif %}
+
+   </body>
+</html>
+

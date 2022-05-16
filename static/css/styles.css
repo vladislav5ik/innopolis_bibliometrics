@@ -1,0 +1,48 @@
+html, body {
+	font-family: Verdana,sans-serif;
+	font-size: 15px;
+	line-height: 1.5;
+}
+
+.table-analytic {
+	border-collapse: collapse;
+	border-spacing: 0;
+	width: auto;
+	display: table;
+	border: 1px solid #ccc;
+}
+
+.table-analytic td, .table-analytic th {
+	padding: 8px 8px;
+	display: table-cell;
+	text-align: left;
+	vertical-align: top;
+}
+
+.table-analytic tr {
+	border-bottom: 1px solid #ddd;
+}
+
+.table-analytic tr:nth-child(2n+1) {
+	background-color: #fff;
+}
+
+.table-analytic tr:nth-child(2n) {
+	background-color: #E7E9EB;
+}
+
+.btn_download {
+	background-color: #04AA6D !important;
+	border-radius: 5px;
+	font-size: 17px;
+	font-family: 'Source Sans Pro', sans-serif;
+	padding: 6px 18px;
+}
+
+.btn_upload {
+	background-color: #63b1e1 !important;
+	border-radius: 5px;
+	font-size: 17px;
+	font-family: 'Source Sans Pro', sans-serif;
+	padding: 6px 18px;
+}

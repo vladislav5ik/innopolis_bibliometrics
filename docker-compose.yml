@@ -1,0 +1,33 @@
+version: '3.8'
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_DB: scopus_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+    volumes:
+      - dbvolume:/var/lib/postgresql/data
+    networks:
+      - dbnet
+  web:
+    build: .
+    command: gunicorn main:app --workers 1 --bind "0.0.0.0:6000" --log-level debug
+    ports:
+        - "6000:6000"
+    depends_on:
+        - db
+    volumes:
+        - .:/app
+    environment:
+        - FLASK_ENV=development
+        - DATABASE_URL=postgresql://postgres:postgres@db:5432/scopus_test
+    networks:
+        - dbnet
+networks:
+  dbnet:
+    driver: bridge
+volumes:
+  dbvolume:

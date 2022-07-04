@@ -2,9 +2,9 @@
 Welcome to the Innopolis University Bibliometric Statistics Retriever! This web service allows you to easily retrieve bibliometric statistics for authors affiliated with Innopolis University. This is internal tool.
 
 ## Features
-Automatically retrieve bibliometric statistics for authors affiliated with Innopolis University
-Statistics include number of publications, citation count, h-index, and more
-Automatic detection of author name variations (coming soon)
+- Automatically retrieve bibliometric statistics for authors affiliated with Innopolis University
+- Statistics include number of publications, citation count, h-index, and more
+- Automatic detection of author name variations (coming soon)
 
 ## Usage
 To use the Innopolis University Bibliometric Statistics Retriever, simply upload CSV file in the input box, then click 'submit'. After that you will see detailed report, which can be downloaded by clicking buttion 'Download results'. 

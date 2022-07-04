@@ -31,7 +31,7 @@ def get_or_create_connection():
         else:
             # If deployed on heroku
             database_url = os.environ['DATABASE_URL']
-            CONN = psycopg2.connect(database_url, sslmode='require')
+            CONN = psycopg2.connect(database_url)
     return CONN, CONN.cursor()
 
 
@@ -293,6 +293,12 @@ def download_file(path):
 def index():
     return render_template('index.html')
 
-
+@app.route('/examplecsv')
+def examplecsv():
+    return send_from_directory(directory=os.getcwd(),
+                               path='examplecsv.csv',
+                               mimetype='application/x-csv',
+                               download_name='example.csv',
+                               as_attachment=True)
 if __name__ == '__main__':
     app.run(debug=True)
